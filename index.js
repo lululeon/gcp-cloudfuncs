@@ -74,6 +74,5 @@ const writeToCloudSQL = () =>{
 }
 
 module.exports = {
-  etlIntakeDispatcher,
-  writeToCloudSQL
+  etlIntakeDispatcher
 }
