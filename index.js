@@ -28,16 +28,14 @@ const etlIntakeDispatcher = (data, context) => {
 
 
 const getQuery = (sqlfile => {
-  return new Promise((resolve, reject) => {
-    return storage.bucket(process.env.SQLBUCKET).getFiles()
-    .then(results => {
-      const files = results[0];
-      const foundfile = files.find(f => {
-        return f.name === sqlfile;
-      });
-      const rstream = foundfile.createReadStream();
-      return streamToString(rstream);
+  return storage.bucket(process.env.SQLBUCKET).getFiles()
+  .then(results => {
+    const files = results[0];
+    const foundfile = files.find(f => {
+      return f.name === sqlfile;
     });
+    const rstream = foundfile.createReadStream();
+    return streamToString(rstream);
   });
 });
 
