@@ -1,0 +1,22 @@
+{
+  "name": "gcp-cloudfuncs",
+  "version": "1.0.0",
+  "description": "gcp cloud funcs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lululeon/gcp-cloudfuncs.git"
+  },
+  "author": "lululeon",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lululeon/gcp-cloudfuncs/issues"
+  },
+  "homepage": "https://github.com/lululeon/gcp-cloudfuncs#readme",
+  "dependencies": {
+    "mysql": "^2.16.0"
+  }
+}
