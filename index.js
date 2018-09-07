@@ -1,6 +1,6 @@
-// const fs = require("fs");
-// const path = require("path");
 const mysql = require('mysql');
+const storage = require('@google-cloud/storage');
+const streamToString = require('stream-to-string');
 
 /**
  * Background Cloud Function.
@@ -27,20 +27,21 @@ const etlIntakeDispatcher = (data, context) => {
 };
 
 
-const getQuery = (queryName => {
-  const storageObject = `${process.env.BUCKET}/${queryName}`;
-  //TODO
+const getQuery = (sqlfile => {
+  return new Promise((resolve, reject) => {
+    return storage.bucket(process.env.SQLBUCKET).getFiles()
+    .then(results => {
+      const files = results[0];
+      const foundfile = files.find(f => {
+        return f.name === sqlfile;
+      });
+      const rstream = foundfile.createReadStream();
+      return streamToString(rstream);
+    });
+  });
 });
 
-const runQuery = (queryName => {
-  const query = getQuery(queryName);
-  if(query === '') {
-    console.log('empty query.');
-    return;
-  }
-});
-
-const writeToCloudSQL = () =>{
+const writeToCloudSQL = () => {
   const pool = mysql.createPool({
     connectionLimit : 1, //best practice.
     socketPath: '/cloudsql/' + process.env.CONNECTIONNAME,
@@ -49,27 +50,22 @@ const writeToCloudSQL = () =>{
     database: process.env.DBNAME
   });
 
-  const queryStrings = `
-    USE cadrates;
-    CREATE TABLE IF NOT EXISTS rates
-    (
-      source varchar(50),
-      fetchdate date,
-      gbp float,
-      eur float,
-      usd float,
-      cny float,
-      PRIMARY KEY (date)
-    );
-    ALTER TABLE rates ADD INDEX (date);
-  `;
-
-  pool.query(queryStrings, (error, results, fields) => {
-    if(error) {
-      console.log(`query with name [${queryStrings}] failed.`)
-    } else {
-      console.log(results);
+  getQuery('create.sql')
+  .then(sqlstr => {
+    if(!sqlstr) {
+      throw(new Error('no sql to execute'));
     }
+
+    pool.query(sqlstr, (error, results, fields) => {
+      if(error) {
+        console.log(`could not execute query.`);
+      } else {
+        console.log(results);
+      }
+    });
+  })
+  .catch(err => {
+    console.log('getQuery failed');
   });
 }
 
