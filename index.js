@@ -1,7 +1,93 @@
 const mysql = require('mysql');
 const storage = require('@google-cloud/storage');
 const streamToString = require('stream-to-string');
+const Json2csvTransform = require('json2csv').Transform;
+const etl = require('node-etl');
 
+/* ---- utils ---- */
+const getDBSchemaName = () => {
+  return process.env.CONNECTIONNAME.split(':').pop();
+};
+
+const getQuery = (sqlfile => {
+  return storage.bucket(process.env.SQLBUCKET).getFiles()
+  .then(results => {
+    const files = results[0];
+    const foundfile = files.find(f => {
+      //presumes bucket has versioning off.
+      return f.name === sqlfile;
+    });
+    const rstream = foundfile.createReadStream();
+    return streamToString(rstream);
+  });
+});
+
+const runQueryHelper = (sqlstr, pool) => {
+  return new Promise((resolve, reject) => {
+    pool.query(sqlstr, (error, results, fields) => {
+      if(error) {
+        console.log(`could not execute query.`);
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
+/* ---- stream transformers ---- */
+const trxJSON2SQL = (loadedFile) => {
+  return new Promise((resolve, reject) => {
+    const pool = mysql.createPool({
+      connectionLimit : 1, //best practice.
+      socketPath: '/cloudsql/' + process.env.CONNECTIONNAME,
+      user: process.env.DBUSER,
+      password: process.env.DBPASS,
+      database: process.env.DBNAME
+    });
+    const opts = { flatten:true, fields: [
+      'base',
+      'date', 
+      { label: 'USD', value:'rates.USD'},
+      { label: 'GBP', value:'rates.GBP'},
+      { label: 'EUR', value:'rates.EUR'},
+      { label: 'CNY', value:'rates.CNY'},
+      { label: 'RUB', value:'rates.RUB'},
+    ] };
+    const transformOpts = {};
+    const json2csv = new Json2csvTransform(opts, transformOpts);
+    const rstream = loadedFile.createReadStream();
+    const schema = getDBSchemaName();
+    //const csvfile = storage.bucket(process.env.SQLBUCKET).file(`${loadedFile.name}.loading.csv`);
+    //const wstream = csvfile.createWriteStream();
+
+    rstream.pipe(json2csv)
+    .pipe(etl.collect(1000))
+    .pipe(etl.mysql.upsert(pool, schema, 'rates'))
+    .promise()
+    .then(result => {
+      console.log('transform complete!');
+      resolve(result);
+    })
+    .catch(err => {
+      reject(err);
+    })
+  });
+}
+
+/* ---- jobs ---- */
+const importData = (loadedFile) => {
+  trxJSON2SQL(loadedFile)
+  .then(result => {
+    console.log('import complete!');
+  })
+  .catch(err => {
+    console.log('import failed:', err);
+  });
+}
+
+
+/* ---- dispatchers ---- */
 /**
  * Background Cloud Function.
  *
@@ -19,27 +105,19 @@ const etlIntakeDispatcher = (data, context) => {
 
   if (file.metageneration === '1') {
     console.log(`File ${file.name} uploaded.`);
-    writeToCloudSQL();
+    importData(file);
   } else {
     console.log(`File ${file.name} metadata updated.`);
     // fire update triggers
   }
 };
 
-
-const getQuery = (sqlfile => {
-  return storage.bucket(process.env.SQLBUCKET).getFiles()
-  .then(results => {
-    const files = results[0];
-    const foundfile = files.find(f => {
-      return f.name === sqlfile;
-    });
-    const rstream = foundfile.createReadStream();
-    return streamToString(rstream);
-  });
-});
-
-const writeToCloudSQL = () => {
+/**
+ * Background direct-called Cloud Function.
+ *
+ * @param {object} data The call payload.
+ */
+const etlRunQuery = (data) => {
   const pool = mysql.createPool({
     connectionLimit : 1, //best practice.
     socketPath: '/cloudsql/' + process.env.CONNECTIONNAME,
@@ -48,25 +126,21 @@ const writeToCloudSQL = () => {
     database: process.env.DBNAME
   });
 
-  getQuery('create.sql')
+  const sqlfile = data.sqlfile;
+  console.log(`Preparing to run sql from [${sqlfile}]`);
+  getQuery(sqlfile)
   .then(sqlstr => {
-    if(!sqlstr) {
-      throw(new Error('no sql to execute'));
-    }
-
-    pool.query(sqlstr, (error, results, fields) => {
-      if(error) {
-        console.log(`could not execute query.`);
-      } else {
-        console.log(results);
-      }
-    });
+    return runQueryHelper(sqlstr, pool);
+  })
+  .then(result => {
+    console.log('runQuery call ok');
   })
   .catch(err => {
-    console.log('getQuery failed');
+    console.log('runQuery failed')
   });
-}
+};
 
 module.exports = {
-  etlIntakeDispatcher
+  etlIntakeDispatcher,
+  etlRunQuery
 }
