@@ -89,7 +89,7 @@ const importData = (loadedFile) => {
 
 /* ---- dispatchers ---- */
 /**
- * Background Cloud Function.
+ * Background Cloud Function (Storage)
  *
  * @param {object} data The event payload.
  * @param {object} context The event metadata.
@@ -113,11 +113,12 @@ const etlIntakeDispatcher = (data, context) => {
 };
 
 /**
- * Background direct-called Cloud Function.
+ * Background Cloud Function (PubSub)
  *
- * @param {object} data The call payload.
+ * @param {object} data The event payload.
+ * @param {object} context The event metadata.
  */
-const etlRunQuery = (data) => {
+const etlRunQuery = (data, context) => {
   const pool = mysql.createPool({
     connectionLimit : 1, //best practice.
     socketPath: '/cloudsql/' + process.env.CONNECTIONNAME,
@@ -126,9 +127,9 @@ const etlRunQuery = (data) => {
     database: process.env.DBNAME
   });
 
-  const sqlfile = data.sqlfile;
-  console.log(`Preparing to run sql from [${sqlfile}]`);
-  getQuery(sqlfile)
+  const sqlfilename = data.sqlfile;
+  console.log(`Preparing to run sql from [${sqlfilename}]`);
+  getQuery(sqlfilename)
   .then(sqlstr => {
     return runQueryHelper(sqlstr, pool);
   })
