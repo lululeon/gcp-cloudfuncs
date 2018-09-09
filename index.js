@@ -5,10 +5,6 @@ const Json2csvTransform = require('json2csv').Transform;
 const etl = require('node-etl');
 
 /* ---- utils ---- */
-const getDBSchemaName = () => {
-  return process.env.CONNECTIONNAME.split(':').pop();
-};
-
 const getQuery = (sqlfile => {
   const storage = new Storage({
     projectId: process.env.PROJECTID
@@ -60,13 +56,9 @@ const trxJSON2SQL = (loadedFile) => {
     const transformOpts = {};
     const json2csv = new Json2csvTransform(opts, transformOpts);
     const rstream = loadedFile.createReadStream();
-    const schema = getDBSchemaName();
-    //const csvfile = storage.bucket(process.env.SQLBUCKET).file(`${loadedFile.name}.loading.csv`);
-    //const wstream = csvfile.createWriteStream();
-
     rstream.pipe(json2csv)
     .pipe(etl.collect(1000))
-    .pipe(etl.mysql.upsert(pool, schema, 'rates'))
+    .pipe(etl.mysql.upsert(pool, process.env.DBNAME, 'rates'))
     .promise()
     .then(result => {
       console.log('transform complete!');
