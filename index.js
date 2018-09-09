@@ -76,8 +76,12 @@ const trxJSON2SQL = (loadedFile) => {
 }
 
 /* ---- jobs ---- */
-const importData = (theBucket, filename) => {
-  const loadedFile = theBucket.file(filename);
+const importData = (bucketName, filename) => {
+  console.log(typeof bucketName);
+  const storage = new Storage({
+    projectId: process.env.PROJECTID
+  });
+  const loadedFile = storage(bucketName).file(filename);
   trxJSON2SQL(loadedFile)
   .then(result => {
     console.log('import complete!');
