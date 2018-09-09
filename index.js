@@ -119,17 +119,20 @@ const etlRunQuery = (data, context) => {
     socketPath: '/cloudsql/' + process.env.CONNECTIONNAME,
     user: process.env.DBUSER,
     password: process.env.DBPASS,
-    database: process.env.DBNAME
+    database: process.env.DBNAME,
+    multipleStatements: true, //naughty. for now.
+    debug: true
   });
 
   const sqlfilename = data.sqlfile;
   console.log(`Preparing to run sql from [${sqlfilename}]`);
   getQuery(sqlfilename)
   .then(sqlstr => {
+    console.log('sqlstr');
     return runQueryHelper(sqlstr, pool);
   })
   .then(result => {
-    console.log('etlRunQuery call ok');
+    console.log('etlRunQuery call ok', result);
   })
   .catch(err => {
     console.log('etlRunQuery failed:', err);
