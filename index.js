@@ -1,5 +1,5 @@
 const mysql = require('mysql');
-const storage = require('@google-cloud/storage');
+const { Storage } = require('@google-cloud/storage');
 const streamToString = require('stream-to-string');
 const Json2csvTransform = require('json2csv').Transform;
 const etl = require('node-etl');
@@ -10,6 +10,9 @@ const getDBSchemaName = () => {
 };
 
 const getQuery = (sqlfile => {
+  const storage = new Storage({
+    projectId: process.env.PROJECTID
+  });
   return storage.bucket(process.env.SQLBUCKET).getFiles()
   .then(results => {
     const files = results[0];
@@ -134,10 +137,10 @@ const etlRunQuery = (data, context) => {
     return runQueryHelper(sqlstr, pool);
   })
   .then(result => {
-    console.log('runQuery call ok');
+    console.log('etlRunQuery call ok');
   })
   .catch(err => {
-    console.log('runQuery failed')
+    console.log('etlRunQuery failed:', err);
   });
 };
 
