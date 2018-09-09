@@ -5,17 +5,22 @@ const Json2csvTransform = require('json2csv').Transform;
 const etl = require('node-etl');
 
 /* ---- utils ---- */
-const getQuery = (sqlfile => {
+const findStorageObject = (bucketName, filename) => {
   const storage = new Storage({
     projectId: process.env.PROJECTID
   });
-  return storage.bucket(process.env.SQLBUCKET).getFiles()
+  return storage.bucket(bucketName).getFiles()
   .then(results => {
     const files = results[0];
     const foundfile = files.find(f => {
       //presumes bucket has versioning off.
-      return f.name === sqlfile;
+      return f.name === filename;
     });
+  });
+}
+
+const getQuery = (sqlfile => {
+  return findStorageObject(process.env.SQLBUCKET, sqlfile).then(foundfile => {
     const rstream = foundfile.createReadStream();
     return streamToString(rstream);
   });
@@ -71,8 +76,11 @@ const trxJSON2SQL = (loadedFile) => {
 }
 
 /* ---- jobs ---- */
-const importData = (loadedFile) => {
-  trxJSON2SQL(loadedFile)
+const importData = (theBucket, filename) => {
+  findStorageObject(theBucket, filename)
+  .then(loadedFile => {
+    return trxJSON2SQL(loadedFile);
+  })
   .then(result => {
     console.log('import complete!');
   })
@@ -80,7 +88,6 @@ const importData = (loadedFile) => {
     console.log('import failed:', err);
   });
 }
-
 
 /* ---- dispatchers ---- */
 /**
@@ -100,7 +107,7 @@ const etlIntakeDispatcher = (data, context) => {
 
   if (file.metageneration === '1') {
     console.log(`File ${file.name} uploaded.`);
-    importData(file);
+    importData(file.bucket, file.name);
   } else {
     console.log(`File ${file.name} metadata updated.`);
     // fire update triggers
