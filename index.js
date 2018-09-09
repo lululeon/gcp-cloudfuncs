@@ -120,15 +120,14 @@ const etlRunQuery = (data, context) => {
     user: process.env.DBUSER,
     password: process.env.DBPASS,
     database: process.env.DBNAME,
-    multipleStatements: true, //naughty. for now.
-    debug: true
+    multipleStatements: true //naughty. for now.
   });
 
   const sqlfilename = data.sqlfile;
   console.log(`Preparing to run sql from [${sqlfilename}]`);
   getQuery(sqlfilename)
   .then(sqlstr => {
-    console.log('sqlstr');
+    console.log(sqlstr);
     return runQueryHelper(sqlstr, pool);
   })
   .then(result => {
