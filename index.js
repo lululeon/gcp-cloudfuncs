@@ -2,7 +2,7 @@ const mysql = require('mysql');
 const { Storage } = require('@google-cloud/storage');
 const streamToString = require('stream-to-string');
 const Json2csvTransform = require('json2csv').Transform;
-const etl = require('node-etl');
+const etl = require('etl');
 
 /* ---- utils ---- */
 const findStorageObject = (bucketName, filename) => {
@@ -62,7 +62,7 @@ const trxJSON2SQL = (loadedFile) => {
     const json2csv = new Json2csvTransform(opts, transformOpts);
     const rstream = loadedFile.createReadStream();
     rstream.pipe(json2csv)
-    //.pipe(etl.collect(1000))
+    .pipe(etl.collect(1000))
     .pipe(etl.mysql.upsert(pool, process.env.DBNAME, 'rates'))
     .promise()
     .then(result => {

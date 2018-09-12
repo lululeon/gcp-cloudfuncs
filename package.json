@@ -18,9 +18,9 @@
   "homepage": "https://github.com/lululeon/gcp-cloudfuncs#readme",
   "dependencies": {
     "@google-cloud/storage": "^2.0.0",
+    "etl": "^0.5.13",
     "json2csv": "^4.2.1",
     "mysql": "^2.16.0",
-    "node-etl": "^1.0.3",
     "stream-to-string": "^1.1.0"
   }
 }
